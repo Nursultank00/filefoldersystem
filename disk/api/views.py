@@ -40,3 +40,8 @@ class DeleteView(generics.DestroyAPIView):
         response = super().destroy(request, *args, **kwargs)
         response.status_code = status.HTTP_200_OK
         return response
+
+class NodesView(generics.RetrieveAPIView):
+    queryset = Item.objects.all()
+    lookup_field = 'id'
+    serializer_class = serializers.NodesSerializerClass

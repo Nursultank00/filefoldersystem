@@ -7,9 +7,9 @@ from .models import Item, FILE, FOLDER, calc_size
 class RepresentSerializer(serializers.ModelSerializer):
     """Для отображения элемента"""
     id = serializers.UUIDField()
-    type = serializers.ChoiceField(choices=[FILE, FOLDER], required = True)
-    size = serializers.IntegerField(required = False)
-    url = serializers.CharField(required = False)
+    type = serializers.CharField()
+    size = serializers.IntegerField()
+    url = serializers.CharField()
     date = serializers.DateTimeField()
     parentId = serializers.SerializerMethodField()
 
@@ -72,9 +72,10 @@ class ImportsSerializer(serializers.Serializer):
                 raise ValidationError(
                     'One request cannot have two elements with the same id'
                 )
-            element = Item.objects.filter(id = item_id)
-            if element.exists():
-                prev_parent = element[0].parent
+            element = Item.objects.filter(id = item_id).first()
+            prev_parent = None
+            if element:
+                prev_parent = element.parent
             parent_id = item_data.pop('parentId')
             if parent_id:
                 parent = Item.objects.filter(id=parent_id)
@@ -105,3 +106,32 @@ class ImportsSerializer(serializers.Serializer):
         queryset = Item.objects.filter(id__in=id_list)
         serializer = RepresentSerializer(queryset, many=True)
         return {'items': serializer.data, 'updateDate': updateDate}
+
+class NodesSerializerClass(serializers.ModelSerializer):
+    id = serializers.UUIDField()
+    type = serializers.CharField()
+    size = serializers.IntegerField()
+    url = serializers.CharField()
+    date = serializers.DateTimeField()
+    parentId = serializers.SerializerMethodField()
+    children = serializers.SerializerMethodField()
+
+    def get_parentId(self, obj):
+        if obj.parent:
+            return obj.parent.id
+        else:
+            return obj.parent
+
+    def get_children(self, obj):
+        if obj.type == FILE:
+            return None
+        else:
+            children = Item.objects.filter(parent = obj.id)
+            if children.exists():
+                serializer = NodesSerializerClass(instance = children, many = True)
+                return serializer.data
+            return []
+
+    class Meta:
+        fields = ('type', 'id', 'size', 'url', 'parentId', 'date', 'children')
+        model = Item
